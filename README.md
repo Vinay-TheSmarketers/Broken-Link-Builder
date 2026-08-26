@@ -1,81 +1,99 @@
-# vBB — Automated Broken Link Building Suite
+# vBB — Automated Broken Link Building Suite Architecture & Guide
 
-vBB is the Smarketers Family Off Page Suite workflow for turning dead resources into qualified outreach opportunities. It ingests domains and URLs, applies a DR/authority threshold, validates hard and soft 404s, checks the Wayback Machine, reconstructs replacement content, and schedules a three-touch seven-day sequence.
+> **Smarketers Off-Page Suite** — Local-first Next.js application that ingests target domains, filters for DR/DA 50+ authority, performs HTTP 404/410 validation, fetches Wayback Machine archives to reconstruct replacement content, and manages a three-touch seven-day outreach sequence.
 
-## What is included
+---
 
-- Next.js App Router dashboard with React, Tailwind CSS, shadcn-style components, Lucide icons, and Framer Motion notifications.
-- CSV drag-and-drop and manual bulk target entry, with supplied or deterministic estimated authority filtering above 50.
-- Live HTTP validation for hard 404/410/5xx failures, unreachable targets, and common soft-404 language.
-- Free Wayback Machine availability lookup and complete rule-based replacement drafts.
-- Durable campaigns, targets, reconstructed content, and sequence steps in SQLite-compatible Cloudflare D1.
-- Three-touch outreach cadence scheduled for day 1, day 3, and day 7.
-- Optional BullMQ worker with Redis for horizontally scaled validation outside the hosted Worker runtime.
-- Strict light theme, responsive navigation, campaign metrics, filters, status toasts, and an animated system trust bar.
+## 🏗️ System Architecture Overview
 
-## Requirements
+```mermaid
+flowchart TD
+    User([User Input: Target URLs / CSV Drag-and-Drop]) --> UI[Next.js Dashboard UI]
+    UI -->|POST Upload| Ingest[Domain Ingestion Pipeline]
+    
+    subgraph Target Filtering & Validation
+        Ingest --> FilterDA{DR / Authority >= 50?}
+        FilterDA -->|No| Exclude[Discard Target]
+        FilterDA -->|Yes| HTTPCheck[HTTP Live Status Validator]
+        
+        HTTPCheck -->|200 OK| ActivePage[Mark Active / No Broken Link]
+        HTTPCheck -->|Hard 404 / 410 / 5xx| DeadLink[Broken Link Detected]
+        HTTPCheck -->|Soft 404 Language| Soft404[Flag Soft 404]
+    end
+    
+    subgraph Content Reconstruction & Archive Lookup
+        DeadLink --> Wayback[Wayback Machine Archive API Lookup]
+        Soft404 --> Wayback
+        Wayback --> Snapshot[Historical Content Snapshot]
+        Snapshot --> Reconstruction[Replacement Content Outline Generator]
+    end
+    
+    subgraph Outreach Cadence & Persistence
+        Reconstruction --> Cadence[Three-Touch Cadence Scheduler]
+        Cadence -->|Touch 1| Day1[Day 1: Initial Outreach]
+        Cadence -->|Touch 2| Day3[Day 3: Follow-Up Check]
+        Cadence -->|Touch 3| Day7[Day 7: Final Outreach Touch]
+        
+        Day1 --> DB[(SQLite / Cloudflare D1 Store)]
+        Day3 --> DB
+        Day7 --> DB
+        DB --> Dashboard[Campaign Monitoring Dashboard]
+    end
+```
 
-- Node.js 22.13 or newer
-- npm 10 or newer
-- No paid API keys are required
+---
 
-## Local setup
+## 🔍 Validation Engine & Archive Reconstruction
+
+### 1. HTTP Link Validation Engine
+vBB inspects submitted links through strict network checks:
+- **Hard 404/410 Status**: Detects dead pages explicitly reported by target servers.
+- **Server Faults (5xx)**: Detects persistent server-side timeouts and unreachable targets.
+- **Soft 404 Analysis**: Inspects response body text for phrases like *"page not found"*, *"resource moved"*, and *"article archived"* to detect fake 200 OK statuses.
+
+### 2. Wayback Machine Reconstruction API
+For every validated broken link, vBB fetches historical snapshots via the public Internet Archive Availability API (`http://archive.org/wayback/available?url=...`):
+- Reconstructs original article titles, main subheadings, and core target topics.
+- Generates a tailored **Replacement Content Outline** that modernizes the lost resource.
+
+### 3. Three-Touch Automated Cadence (Day 1, 3, 7)
+Outreach targets progress through a scheduled 7-day lifecycle:
+- **Day 1**: Initial broken link notification featuring the dead resource URL and your replacement resource.
+- **Day 3**: Soft reminder highlighting a specific data point or takeaway from your replacement content.
+- **Day 7**: Final follow-up before auto-archiving the lead.
+
+---
+
+## 💾 Persistence & Scalability
+
+- **Local Storage Engine**: Persists campaigns, validated targets, reconstructed outlines, and outreach steps in a local SQLite file (or Cloudflare D1).
+- **Horizontal Worker Option**: Includes an optional BullMQ + Redis queue setup for scaling validation and crawling jobs outside the Next.js process.
+
+---
+
+## 📊 Tech Stack
+
+- **Framework**: Next.js (App Router), React 19, TypeScript
+- **Styling**: Tailwind CSS, shadcn-style components, Lucide Icons, Framer Motion
+- **Database**: SQLite / Cloudflare D1
+- **Scaling**: Optional BullMQ + Redis worker support
+
+---
+
+## 🚀 Running Locally
 
 ```bash
+# Install dependencies
 npm install
-copy .env.example .env.local
+
+# Run dev server
 npm run dev
+
+# Open in browser
+http://localhost:3000
 ```
 
-Open `http://localhost:3000`. The local Sites runtime provisions D1 through Miniflare; its storage is SQLite-backed and remains project-local. Tables and indexes are created on the first dashboard API request, and representative records are seeded once so every product surface is immediately usable.
+---
 
-On macOS or Linux, replace the `copy` command with `cp .env.example .env.local`.
-
-## Database and migrations
-
-The runtime schema is defined in `db/schema.ts`. The equivalent portable SQLite migration is in `migrations/0001_initial.sql`. Startup uses idempotent `CREATE TABLE IF NOT EXISTS` statements, prepared D1 queries, indexed status lookups, and `PRAGMA optimize`, so no separate local migration command is required.
-
-Core tables:
-
-- `campaigns`: campaign totals and processing state
-- `targets`: normalized URLs, authority, validation, archive, and contact details
-- `content_reconstructions`: complete replacement-resource drafts
-- `sequence_steps`: subjects, bodies, schedule dates, and delivery state
-
-## CSV format
-
-CSV headers are detected case-insensitively. Use `url`, `domain`, or `target` for the target column and `dr`, `da`, `domain rating`, or `authority` for the optional score.
-
-```csv
-url,domain rating
-https://example.com/old-guide,72
-publisher.example/resources,64
-```
-
-Rows with authority 50 or lower are excluded. When authority is absent, vBB generates a stable local estimate so the free workflow remains deterministic.
-
-## Optional BullMQ worker
-
-The hosted app works without Redis. For high-volume Node.js deployments, start Redis locally, set `REDIS_URL`, and run:
-
-```bash
-npm run worker
-```
-
-The worker validates up to eight targets concurrently, rate-limits fetches, reports progress, returns typed results, and shuts down cleanly on `SIGINT` or `SIGTERM`.
-
-## Verification and production build
-
-```bash
-npm run lint
-npm run build
-```
-
-Set `SITE_URL` to the canonical HTTPS origin before building a non-Sites deployment so Open Graph and X image URLs are absolute. The Sites deployment flow provisions the declared `DB` binding from `.openai/hosting.json` and serves the Worker-compatible ESM output produced by Vinext.
-
-## API
-
-- `GET /api/campaigns` returns campaigns, recent targets, and dashboard totals.
-- `POST /api/campaigns` accepts `{ "name": string, "targets": [{ "url": string, "authority"?: number }] }`, filters and normalizes targets, validates them, archives broken resources when possible, creates replacement drafts, and queues all outreach steps.
-
-The POST endpoint accepts at most 50 targets per request and uses bounded fetch timeouts to keep scans predictable.
+## 🌐 Part of Smarketers Off-Page Suite
+vBB is part of the Smarketers Off-Page Suite — open-source, local-first marketing applications designed for privacy, speed, and reliability without SaaS dependencies.
