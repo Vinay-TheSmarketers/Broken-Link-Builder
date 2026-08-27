@@ -1,10 +1,51 @@
-# vBB — Automated Broken Link Building Suite Architecture & Guide
+# vBB — Automated Broken Link Building Suite Architecture & Strategy Guide
 
 > **Smarketers Off-Page Suite** — Local-first Next.js application that ingests target domains, filters for DR/DA 50+ authority, performs HTTP 404/410 validation, fetches Wayback Machine archives to reconstruct replacement content, and manages a three-touch seven-day outreach sequence.
 
 ---
 
-## 🏗️ System Architecture Overview
+## 🤖 Automation Matrix: Automated vs. Human Operator Boundaries
+
+To maximize outreach conversion and ensure natural link replacement, vBB enforces clear operational boundaries:
+
+```
+┌─────────────────────────────────────────────────────────┬─────────────────────────────────────────────────────────┐
+│ ⚡ 100% AUTOMATED BY vBB ENGINE                        │ 👤 HUMAN OPERATOR GATEWAY & REPLACEMENT AUDIT           │
+├─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────┤
+│ • CSV domain drag-and-drop ingestion & deduplication    │ • Reviewing historical Wayback Machine snapshots        │
+│ • DR/DA 50+ authority filtering gate                    │ • Publishing original replacement content on your site  │
+│ • Live HTTP 404/410 status & soft-404 text analysis     │ • Reviewing generated outreach pitch templates          │
+│ • Internet Archive / Wayback Machine API snapshot lookup│ • Sending outreach email via webmaster / editor contact │
+│ • Replacement content outline reconstruction            │ • Handling webmaster responses & confirming replacement │
+│ • Three-touch 7-day cadence scheduling (Days 1, 3, 7)   │ • Submitting linking page to Google Search Console      │
+└─────────────────────────────────────────────────────────┴─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🎯 Intricate Marketing & Strategy Playbook
+
+### 1. Target Prospecting & Qualification Criteria
+- **Target Selection**: Search for industry resource hubs and roundup pages (`inurl:resources "niche"`, `inurl:links "niche"`). Resource pages link out frequently and webmasters actively maintain them.
+- **Authority Gate (DR/DA ≥ 50)**: Focus exclusively on high-authority domains where a single replacement backlink delivers substantial PageRank equity.
+- **Link Status Classification**:
+  - **Hard 404 / 410**: Dead pages explicitly returning error codes. Top conversion priority.
+  - **Soft 404s**: Pages returning 200 OK but displaying *"page no longer available"* or *"archived entry"*.
+
+### 2. Replacement Content Reconstruction Standard
+Never pitch a thin replacement. Your replacement content must be **strictly superior** to the dead resource:
+- **1,500+ Words**: Match or exceed the depth of the archived Wayback snapshot.
+- **Updated Data & Visuals**: Modernize outdated calculations, broken images, or old statistics from the original 2018–2022 snapshot.
+- **Topical Parity**: Retain the core topic and primary keywords so the linking site's editorial context remains 100% relevant.
+
+### 3. High-Converting Outreach Formula
+- **Helpful Framing**: Frame your pitch as a user experience fix: *"I was reading your guide on [Topic] and noticed the link to [Dead Target] returns a 404 error..."*
+- **Low-Friction Replacement Offer**: *"We recently published an updated, comprehensive guide covering [Topic] with fresh 2026 data. If helpful, it might make a great replacement for your readers: [Your URL]"*
+- **No Commercial Pitching**: Never mention SEO, PageRank, or link building.
+
+---
+
+## 🏗️ End-to-End System Architecture
 
 ```mermaid
 flowchart TD
@@ -43,31 +84,18 @@ flowchart TD
 
 ---
 
-## 🔍 Validation Engine & Archive Reconstruction
+## 💻 Code Internals & Technical Deep Dive
 
-### 1. HTTP Link Validation Engine
-vBB inspects submitted links through strict network checks:
-- **Hard 404/410 Status**: Detects dead pages explicitly reported by target servers.
-- **Server Faults (5xx)**: Detects persistent server-side timeouts and unreachable targets.
-- **Soft 404 Analysis**: Inspects response body text for phrases like *"page not found"*, *"resource moved"*, and *"article archived"* to detect fake 200 OK statuses.
+### 1. HTTP Validation Engine
+Inspects targets for 404/410/5xx errors, timeouts, and soft 404 text patterns (*"not found"*, *"resource moved"*, *"archived"*).
 
-### 2. Wayback Machine Reconstruction API
-For every validated broken link, vBB fetches historical snapshots via the public Internet Archive Availability API (`http://archive.org/wayback/available?url=...`):
-- Reconstructs original article titles, main subheadings, and core target topics.
-- Generates a tailored **Replacement Content Outline** that modernizes the lost resource.
+### 2. Wayback Machine Availability API Integration
+Fetches historical snapshots from `http://archive.org/wayback/available?url=...` to extract historical headings and title tags.
 
-### 3. Three-Touch Automated Cadence (Day 1, 3, 7)
-Outreach targets progress through a scheduled 7-day lifecycle:
-- **Day 1**: Initial broken link notification featuring the dead resource URL and your replacement resource.
-- **Day 3**: Soft reminder highlighting a specific data point or takeaway from your replacement content.
-- **Day 7**: Final follow-up before auto-archiving the lead.
-
----
-
-## 💾 Persistence & Scalability
-
-- **Local Storage Engine**: Persists campaigns, validated targets, reconstructed outlines, and outreach steps in a local SQLite file (or Cloudflare D1).
-- **Horizontal Worker Option**: Includes an optional BullMQ + Redis queue setup for scaling validation and crawling jobs outside the Next.js process.
+### 3. Cadence Scheduler (Days 1, 3, 7)
+- **Day 1**: Initial broken link alert + replacement recommendation.
+- **Day 3**: Soft reminder referencing a key takeaway.
+- **Day 7**: Final check-in before marking task inactive.
 
 ---
 
@@ -76,7 +104,6 @@ Outreach targets progress through a scheduled 7-day lifecycle:
 - **Framework**: Next.js (App Router), React 19, TypeScript
 - **Styling**: Tailwind CSS, shadcn-style components, Lucide Icons, Framer Motion
 - **Database**: SQLite / Cloudflare D1
-- **Scaling**: Optional BullMQ + Redis worker support
 
 ---
 
